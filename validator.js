@@ -5,7 +5,7 @@ function preCreateTx(to, value, network) {
   var error
 
   try{
-    var address = bitcoin.Address.fromBase58Check(to)
+    var address = to instanceof bitcoin.Address ? to : bitcoin.Address.fromBase58Check(to)
     assert(address.version === network.pubKeyHash || address.version === network.scriptHash,
            'Invalid address version prefix')
   } catch(e) {
