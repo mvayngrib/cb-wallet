@@ -316,12 +316,12 @@ Wallet.prototype.getUnspents = function(minConf) {
     return metadata[n.id].confirmations >= minConf
   })
 
-  return unspentNodes.reduce(function(unspentOutputs, node) {
+  return confirmedNodes.reduce(function(unspentOutputs, node) {
     node.tx.outs.forEach(function(out, i) {
       if (bitcoin.scripts.isNullDataOutput(out.script)) return;
 
       var address = bitcoin.Address.fromOutputScript(out.script, network).toString()
-      if(myAddresses.indexOf(address) >= 0) {
+      if(myAddresses.indexOf(address) >= 0 && node.nextNodes[i] == null) {
         unspentOutputs.push({
           id: node.id,
           address: address,
