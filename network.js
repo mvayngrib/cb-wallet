@@ -4,9 +4,9 @@ var bitcoin = require('bitcoinjs-lib')
 var discover = require('bip32-utils').discovery
 var async = require('async')
 
-function discoverAddressesForAccounts(api, externalAccount, internalAccount, callback) {
+function discoverAddressesForAccounts(api, externalAccount, internalAccount, gapLimit, callback) {
   var functions = [externalAccount, internalAccount].map(function(account) {
-    return function(cb) { discoverUsedAddresses(account, api, cb) }
+    return function(cb) { discoverUsedAddresses(account, api, gapLimit, cb) }
   })
 
   async.parallel(functions, function(err, results) {
@@ -16,32 +16,34 @@ function discoverAddressesForAccounts(api, externalAccount, internalAccount, cal
   })
 }
 
-function discoverUsedAddresses(account, api, done) {
+function discoverUsedAddresses(account, api, gapLimit, done) {
+  gapLimit = typeof gapLimit === 'undefined' ? 10 : gapLimit
+  // offset = typeof offset === 'undefined' ? 0 : offset
+
   var usedAddresses = []
 
-  discover(account, 5, function(addresses, callback) {
+  discover(account, gapLimit, function(addresses, callback) {
+
+    usedAddresses.push.apply(usedAddresses, addresses)
 
     api.addresses.get(addresses, function(err, results) {
       if (err) return callback(err);
 
       callback(undefined, results.map(function(result, i) {
-        if (result.txCount > 0) {
-          usedAddresses.push(addresses[i])
-          return true
-        }
+        return result.txCount > 0
       }))
     })
   }, function(err, k) {
     if (err) return done(err);
 
     console.info('Discovered ' + k + ' addresses')
-    
+
     done(null, usedAddresses)
   })
 }
 
-function fetchTransactions(api, addresses, done) {
-  api.addresses.transactions(addresses, null, function(err, transactions) {
+function fetchTransactions(api, addresses, blockHeight, done) {
+  api.addresses.transactions(addresses, blockHeight, function(err, transactions) {
     if(err) return done(err);
 
     var parsed = parseTransactions(transactions)
