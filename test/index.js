@@ -20,19 +20,29 @@ describe('Common Blockchain Wallet', function() {
     var wallet
 
     before(function(done) {
-      wallet = new Wallet(fixtures.externalAccount, fixtures.internalAccount, 'testnet', done)
+      wallet = new Wallet({
+        externalAccount: fixtures.externalAccount, 
+        internalAccount: fixtures.internalAccount, 
+        networkName: 'testnet'
+      }, done)
     })
 
     describe('constructor', function() {
       it('returns error when externalAccount and internalAccount are missing', function(done) {
-        new Wallet(null, null, 'testnet', function(err) {
+        new Wallet({
+          networkName: 'testnet', 
+        }, function(err) {
           assert(err)
           done()
         })
       })
 
       it('accepts externalAccount and internalAccount as objects', function() {
-        new Wallet(HDNode.fromBase58(fixtures.externalAccount), HDNode.fromBase58(fixtures.internalAccount), 'testnet', function(err, w) {
+        new Wallet({
+          externalAccount: HDNode.fromBase58(fixtures.externalAccount), 
+          internalAccount: HDNode.fromBase58(fixtures.internalAccount), 
+          networkName: 'testnet'
+        }, function(err, w) {
           assert.equal(w.externalAccount.toBase58(), fixtures.externalAccount)
           assert.equal(w.internalAccount.toBase58(), fixtures.internalAccount)
         })
@@ -50,8 +60,10 @@ describe('Common Blockchain Wallet', function() {
         })
 
         it('assigns addresses and changeAddresses', function() {
-          assert.deepEqual(wallet.addresses, addresses)
-          assert.deepEqual(wallet.changeAddresses, changeAddresses)
+          // assert.deepEqual(wallet.addresses, addresses)
+          // assert.deepEqual(wallet.changeAddresses, changeAddresses)
+          assert(addresses.every(function(a) { return wallet.addresses.indexOf(a) !== -1 }))
+          assert(changeAddresses.every(function(a) { return wallet.changeAddresses.indexOf(a) !== -1 }))
         })
 
         it('assigns networkName', function() {
@@ -74,6 +86,7 @@ describe('Common Blockchain Wallet', function() {
 
     describe('serialization & deserialization', function() {
       it('works', function() {
+        debugger;
         var parsed = Wallet.deserialize(wallet.serialize())
 
         assert.equal(parsed.txGraph.heads.length, wallet.txGraph.heads.length)

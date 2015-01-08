@@ -3,6 +3,7 @@
 var bitcoin = require('bitcoinjs-lib')
 var discover = require('bip32-utils').discovery
 var async = require('async')
+var debug = require('debug')('cb-wallet');
 
 function discoverAddressesForAccounts(api, externalAccount, internalAccount, gapLimit, callback) {
   var functions = [externalAccount, internalAccount].map(function(account) {
@@ -36,8 +37,11 @@ function discoverUsedAddresses(account, api, gapLimit, done) {
   }, function(err, k) {
     if (err) return done(err);
 
-    console.info('Discovered ' + k + ' addresses')
+    debug('Discovered ' + k + ' addresses')
 
+    // include gaps up until the last gap 
+    // otherwise if there are any gaps, getNextAddress will generate addresses we already have
+    usedAddresses = usedAddresses.slice(0, k)
     done(null, usedAddresses)
   })
 }
