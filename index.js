@@ -478,7 +478,7 @@ Wallet.deserialize = function(json) {
   wallet.addresses = {}  
   ;['internal', 'external'].forEach(function(accountType) {
     wallet.accounts[accountType] = bitcoin.HDNode.fromBase58(deserialized.accounts[accountType])
-    wallet.addresses[accountType] = deriveAddresses(wallet.accounts[accountType], deserialized.addresses[accountType].length)
+    wallet.addresses[accountType] = wallet.deriveAddresses(wallet.accounts[accountType], deserialized.addresses[accountType].length)
   })
 
   wallet.networkName = deserialized.networkName
@@ -507,7 +507,13 @@ function mergeMetadata(feesAndValues, metadata) {
   return metadata
 }
 
-function deriveAddresses(account, untilId) {
+Wallet.prototype.deriveAddresses = function(account, untilId) {
+  if (typeof account === 'undefined' || typeof account === 'number') {
+    untilId = account
+    account = null
+  }
+
+  account = account || this.accounts.external
   var addresses = []
   for(var i=0; i<untilId; i++) {
     addresses.push(account.derive(i).getAddress().toString())
