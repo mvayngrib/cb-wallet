@@ -1,14 +1,14 @@
-"use strict";
+'use strict';
 
 var bitcoin = require('bitcoinjs-lib')
 var discover = require('bip32-utils').discovery
 var async = require('async')
 var debug = require('debug')('cb-wallet');
 
-function discoverAddressesForAccounts(api, externalAccount, internalAccount, gapLimit, callback) {
-  var functions = [externalAccount, internalAccount].map(function (account) {
+function discoverAddressesForAccounts(api, accounts, gapLimit, callback) {
+  var functions = accounts.map(function (account) {
     return function (cb) {
-      discoverUsedAddresses(account, api, gapLimit, cb)
+      discoverUsedAddresses(api, account, gapLimit, cb)
     }
   })
 
@@ -19,7 +19,7 @@ function discoverAddressesForAccounts(api, externalAccount, internalAccount, gap
   })
 }
 
-function discoverUsedAddresses(account, api, gapLimit, done) {
+function discoverUsedAddresses(api, account, gapLimit, done) {
   gapLimit = typeof gapLimit === 'undefined' ? 10 : gapLimit
     // offset = typeof offset === 'undefined' ? 0 : offset
 

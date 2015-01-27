@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 var API = require('cb-blockr')
 var bitcoin = require('bitcoinjs-lib')
@@ -81,10 +81,12 @@ Wallet.prototype.bootstrap = function (callback) {
 
 Wallet.prototype.discoverAddresses = function (gapLimit, callback) {
   var that = this
+  var accounts = [this.accounts.external, this.accounts.internal]
+
   if (typeof gapLimit === 'function') callback = gapLimit
 
   gapLimit = typeof gapLimit === 'number' ? gapLimit : this.gapLimit
-  discoverAddresses(this.api, this.accounts.external, this.accounts.internal, gapLimit, function (err, addresses, changeAddresses) {
+  discoverAddresses(this.api, accounts, gapLimit, function (err, addresses, changeAddresses) {
     if (err) return callback(err)
 
     that.addresses.external = addresses
@@ -201,8 +203,6 @@ Wallet.prototype.getNextAddress = function (type, offset) {
   }
 
   type = type || 'external';
-  var account = this.accounts[type];
-  var addresses = this.addresses[type];
   var idx = this.addressIndex[type] + (offset || 0);
   var hdNode = this.getHDNode(type, idx);
   return hdNode.getAddress().toString()
@@ -286,14 +286,14 @@ Wallet.prototype.isSentByMe = function (tx) {
     metadata.fromMe = tx.ins.map(this.getAddressFromInput)
       .some(this.getPrivateKeyForAddress)
   }
-  
+
   return metadata.fromMe
 }
 
 Wallet.prototype.isSentToMe = function (tx) {
   var metadata = this.getMetadata(tx);
   if (!('toMe' in metadata)) {
-    return metadata.toMe = tx.outs.map(this.getAddressFromOutput)
+    metadata.toMe = tx.outs.map(this.getAddressFromOutput)
       .some(this.getPrivateKeyForAddress);
   }
 
@@ -389,7 +389,7 @@ Wallet.prototype.processTx = function (txs) {
   this.txMetadata = mergeMetadata(feesAndValues, this.txMetadata)
 }
 
-Wallet.prototype.createTx = function (to, value, fee, minConf, data) {
+Wallet.prototype.createTx = function (to, value, fee, minConf /*, data */ ) {
   var network = bitcoin.networks[this.networkName]
   validate.preCreateTx(to, value, network)
 
@@ -412,7 +412,7 @@ Wallet.prototype.createTx = function (to, value, fee, minConf, data) {
     addresses.push(unspent.address)
 
     var estimatedFee
-    if (fee == undefined) {
+    if (typeof fee === 'undefined') {
       estimatedFee = estimateFeePadChangeOutput(builder.buildIncomplete(), network)
     } else {
       estimatedFee = fee
@@ -433,7 +433,7 @@ Wallet.prototype.createTx = function (to, value, fee, minConf, data) {
 
   validate.postCreateTx(subTotal, accum, this.getBalance(minConf))
 
-  if (data) builder.addOutput(bitcoin.scripts.nullDataOutput(data), 0)
+  // if (data) builder.addOutput(bitcoin.scripts.nullDataOutput(data), 0)
 
   addresses.forEach(function (address, i) {
     builder.sign(i, that.getPrivateKeyForAddress(address))
