@@ -21,8 +21,8 @@ describe('Common Blockchain Wallet', function() {
 
     before(function(done) {
       wallet = new Wallet({
-        externalAccount: fixtures.externalAccount, 
-        internalAccount: fixtures.internalAccount, 
+        externalAccount: fixtures.accounts.external,
+        internalAccount: fixtures.accounts.internal,
         networkName: 'testnet'
       }, done)
     })
@@ -39,12 +39,12 @@ describe('Common Blockchain Wallet', function() {
 
       it('accepts externalAccount and internalAccount as objects', function() {
         new Wallet({
-          externalAccount: HDNode.fromBase58(fixtures.externalAccount), 
-          internalAccount: HDNode.fromBase58(fixtures.internalAccount), 
+          externalAccount: HDNode.fromBase58(fixtures.accounts.external), 
+          internalAccount: HDNode.fromBase58(fixtures.accounts.internal), 
           networkName: 'testnet'
         }, function(err, w) {
-          assert.equal(w.accounts.external.toBase58(), fixtures.externalAccount)
-          assert.equal(w.accounts.internal.toBase58(), fixtures.internalAccount)
+          assert.equal(w.accounts.external.toBase58(), fixtures.accounts.external)
+          assert.equal(w.accounts.internal.toBase58(), fixtures.accounts.internal)
         })
       })
 
@@ -54,9 +54,9 @@ describe('Common Blockchain Wallet', function() {
           assert.equal(wallet.txGraph.heads.length, 1)
         })
 
-        it('assigns externalAccount and internalAccount', function() {
-          assert.equal(wallet.accounts.external.toBase58(), fixtures.externalAccount)
-          assert.equal(wallet.accounts.internal.toBase58(), fixtures.internalAccount)
+        it('assigns accounts.external and accounts.internal', function() {
+          assert.equal(wallet.accounts.external.toBase58(), fixtures.accounts.external)
+          assert.equal(wallet.accounts.internal.toBase58(), fixtures.accounts.internal)
         })
 
         it('assigns addresses and changeAddresses', function() {
@@ -135,8 +135,8 @@ describe('Common Blockchain Wallet', function() {
       })
 
       it('does not miss pending unspents', function() {
-        wallet = Wallet.deserialize(JSON.stringify(balanceFixtures))
-        assert.equal(wallet.getBalance(), 52388527)
+        var tmpWallet = Wallet.deserialize(JSON.stringify(balanceFixtures))
+        assert.equal(tmpWallet.getBalance(), 52388527)
       })
 
       function fundAddressZero(wallet, amount) {
