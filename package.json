@@ -3,6 +3,17 @@
   "version": "0.7.1",
   "description": "",
   "main": "index.js",
+  "scripts": {
+    "postinstall": "cp node_modules/tradle-style/.js* .",
+    "jsbeautify": "js-beautify -r **.js",
+    "jshint": "jshint **.js",
+    "test": "mocha test"
+  },
+  "pre-commit": [
+    "test",
+    "jsbeautify",
+    "jshint"
+  ],
   "dependencies": {
     "async": "^0.9.0",
     "bip32-utils": "0.0.1",
@@ -14,19 +25,20 @@
   "devDependencies": {
     "mocha": "^1.21.4",
     "sinon": "^1.10.3",
-    "uniqueify": "^1.0.0"
+    "uniqueify": "^1.0.0",
+    "jshint": "latest",
+    "js-beautify": "latest",
+    "pre-commit": "0.0.11",
+    "tradle-style": "0.0.1"
   },
-  "scripts": {
-    "test": "mocha test"
-  },
+  "forkedFrom": "https://github.com/weilu/cb-wallet.git",
   "repository": {
     "type": "git",
-    "url": "https://github.com/weilu/cb-wallet.git"
+    "url": "https://github.com/tradle/cb-wallet.git"
   },
-  "author": "Wei Lu <luwei.here@gmail.com>",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/weilu/cb-wallet/issues"
+    "url": "https://github.com/tradle/cb-wallet/issues"
   },
-  "homepage": "https://github.com/weilu/cb-wallet"
+  "homepage": "https://github.com/tradle/cb-wallet"
 }

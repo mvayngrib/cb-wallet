@@ -30,21 +30,21 @@ function Wallet(options, done) {
   }
 
   try {
-    if(typeof options.externalAccount === 'string') {
+    if (typeof options.externalAccount === 'string') {
       this.accounts.external = bitcoin.HDNode.fromBase58(options.externalAccount)
     } else {
       this.accounts.external = options.externalAccount
     }
 
-    if(typeof options.internalAccount === 'string') {
+    if (typeof options.internalAccount === 'string') {
       this.accounts.internal = bitcoin.HDNode.fromBase58(options.internalAccount)
     } else {
       this.accounts.internal = options.internalAccount
     }
 
-    assert(this.accounts.external != null, 'externalAccount cannot be null')
-    assert(this.accounts.internal != null, 'internalAccount cannot be null')
-  } catch(e) {
+    assert(this.accounts.external, 'externalAccount cannot be null')
+    assert(this.accounts.internal, 'internalAccount cannot be null')
+  } catch (e) {
     return done(e)
   }
 
@@ -69,22 +69,22 @@ function Wallet(options, done) {
 
 inherits(Wallet, EventEmitter)
 
-Wallet.prototype.bootstrap = function(callback) {
+Wallet.prototype.bootstrap = function (callback) {
   var that = this
 
-  this.discoverAddresses(this.gapLimit, function(err) {
+  this.discoverAddresses(this.gapLimit, function (err) {
     if (err) return callback(err)
 
     that.fetchTransactions(0, callback)
   })
 }
 
-Wallet.prototype.discoverAddresses = function(gapLimit, callback) {
+Wallet.prototype.discoverAddresses = function (gapLimit, callback) {
   var that = this
   if (typeof gapLimit === 'function') callback = gapLimit
 
   gapLimit = typeof gapLimit === 'number' ? gapLimit : this.gapLimit
-  discoverAddresses(this.api, this.accounts.external, this.accounts.internal, gapLimit, function(err, addresses, changeAddresses) {
+  discoverAddresses(this.api, this.accounts.external, this.accounts.internal, gapLimit, function (err, addresses, changeAddresses) {
     if (err) return callback(err)
 
     that.addresses.external = addresses
@@ -96,12 +96,12 @@ Wallet.prototype.discoverAddresses = function(gapLimit, callback) {
   })
 }
 
-Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
+Wallet.prototype.fetchTransactions = function (blockHeight, callback) {
   var that = this
   var addresses = this.getAllAddresses()
   var numUpdates = 0
 
-  if (!addresses.length) return process.nextTick(function() {
+  if (!addresses.length) return process.nextTick(function () {
     callback(null, 0)
   })
 
@@ -109,10 +109,12 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
 
   blockHeight = typeof blockHeight === 'number' ? blockHeight : 0
 
-  fetchTransactions(this.api, addresses, blockHeight, function(err, txs, metadata) {
+  fetchTransactions(this.api, addresses, blockHeight, function (err, txs, metadata) {
     if (err) return callback(err);
 
-    var added = txs.filter(function(tx) { return that.addToGraph(tx) })
+    var added = txs.filter(function (tx) {
+      return that.addToGraph(tx)
+    })
 
     var feesAndValues = that.txGraph.calculateFeesAndValues(addresses, bitcoin.networks[that.networkName])
     metadata = mergeMetadata(feesAndValues, metadata)
@@ -134,14 +136,14 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
   })
 }
 
-Wallet.prototype.addToGraph = function(tx, silent) {
+Wallet.prototype.addToGraph = function (tx, silent) {
   var added = this.txGraph.addTx(tx)
   if (added && !silent) this.emit('transaction:new', tx)
 
   return added
 }
 
-Wallet.prototype.sync = function(callback) {
+Wallet.prototype.sync = function (callback) {
   if (!this.getAllAddresses().length)
     this.bootstrap(callback)
   else
@@ -149,10 +151,10 @@ Wallet.prototype.sync = function(callback) {
 }
 
 /**
- *  Returns the block height below which all transactions in the wallet 
+ *  Returns the block height below which all transactions in the wallet
  *  are confirmed to at least [confirmations] confirmations
  */
-Wallet.prototype.getBlockHeight = function(confirmations) {
+Wallet.prototype.getBlockHeight = function (confirmations) {
   var metadata = this.txMetadata;
   var safeHeight = Infinity;
   var top = 0;
@@ -174,25 +176,25 @@ Wallet.prototype.getBlockHeight = function(confirmations) {
   return safeHeight;
 }
 
-Wallet.prototype.getAddresses = function(internal) {
+Wallet.prototype.getAddresses = function (internal) {
   return this.addresses[internal ? 'internal' : 'external'];
- }
+}
 
-Wallet.prototype.getAllAddresses = function() {
+Wallet.prototype.getAllAddresses = function () {
   return (this.addresses.external || []).concat(this.addresses.internal || [])
 }
 
-Wallet.prototype.getBalance = function(minConf) {
+Wallet.prototype.getBalance = function (minConf) {
   minConf = minConf || 0
 
   var utxos = this.getUnspents(minConf)
 
-  return utxos.reduce(function(balance, unspent) {
+  return utxos.reduce(function (balance, unspent) {
     return balance + unspent.value
   }, 0)
 }
 
-Wallet.prototype.getNextAddress = function(type, offset) {
+Wallet.prototype.getNextAddress = function (type, offset) {
   if (typeof type === 'undefined' || typeof type === 'number') {
     offset = type
     type = null
@@ -206,7 +208,7 @@ Wallet.prototype.getNextAddress = function(type, offset) {
   return hdNode.getAddress().toString()
 }
 
-Wallet.prototype.getNextChangeAddress = function(offset) {
+Wallet.prototype.getNextChangeAddress = function (offset) {
   return this.getNextAddress('internal', offset);
 }
 
@@ -215,44 +217,48 @@ Wallet.prototype.getNextChangeAddress = function(offset) {
  *  @return true if address is change address, false if address is not, undefined if we were unable to figure it out
  *    up to the gap limit
  */
-Wallet.prototype.isChangeAddress = function(address) {
+Wallet.prototype.isChangeAddress = function (address) {
   var addrStr = address.toBase58Check ? address.toString() : address
 
   if (this.getAddressIndex('internal', addrStr) !== -1) return true
   if (this.getAddressIndex('external', addrStr) !== -1) return false
 }
 
-Wallet.prototype.getReceiveAddress = function() { 
+Wallet.prototype.getReceiveAddress = function () {
   return this.addresses.external[this.addresses.external.length] || this.getNextAddress()
 }
 
-Wallet.prototype.findHDNode = function(address) {
+Wallet.prototype.findHDNode = function (address) {
   var self = this
   var info;
 
-  ;['internal', 'external'].some(function(accountType) {
+  ['internal', 'external'].some(function (accountType) {
     var idx = self.getAddressIndex(accountType, address);
-    if (idx !== -1) return info = {
-      account: self.accounts[accountType],
-      hdNode: self.getHDNode(accountType, idx)
+    if (idx !== -1) {
+      info = {
+        account: self.accounts[accountType],
+        hdNode: self.getHDNode(accountType, idx)
+      }
+
+      return true
     }
   })
 
   return info;
 }
 
-Wallet.prototype.deriveToGapLimit = function(type) {
+Wallet.prototype.deriveToGapLimit = function (type) {
   this.deriveAddresses(type, this.addressIndex[type] + this.gapLimit);
 }
 
-Wallet.prototype.getHDNode = function(type, idx) {
+Wallet.prototype.getHDNode = function (type, idx) {
   type = type || 'external';
   var account = this.accounts[type];
   var hdNodes = this.hdNodes[type];
   return hdNodes[idx] || (hdNodes[idx] = account.derive(idx));
 }
 
-Wallet.prototype.getAddressIndex = function(type, address) {
+Wallet.prototype.getAddressIndex = function (type, address) {
   type = type || 'external';
   var addresses = this.addresses[type];
   var idx = addresses.indexOf(address);
@@ -262,47 +268,51 @@ Wallet.prototype.getAddressIndex = function(type, address) {
   return addresses.indexOf(address);
 }
 
-Wallet.prototype.getPrivateKeyForAddress = function(address) {
+Wallet.prototype.getPrivateKeyForAddress = function (address) {
   var result = this.findHDNode(address)
   if (result) return result.hdNode.privKey
 
   throw new Error('Unknown address. Make sure the address is from the keychain and has been generated.')
 }
 
-Wallet.prototype.getPublicKeyForAddress = function(address) {
+Wallet.prototype.getPublicKeyForAddress = function (address) {
   var key = this.getPrivateKeyForAddress(address)
   return key && key.pub
 }
 
 Wallet.prototype.isSentByMe = function (tx) {
   var metadata = this.getMetadata(tx)
-  if ('fromMe' in metadata) return metadata.fromMe
-
-  return metadata.fromMe = tx.ins.map(this.getAddressFromInput)
-    .some(this.getPrivateKeyForAddress)
+  if (!('fromMe' in metadata)) {
+    metadata.fromMe = tx.ins.map(this.getAddressFromInput)
+      .some(this.getPrivateKeyForAddress)
+  }
+  
+  return metadata.fromMe
 }
 
 Wallet.prototype.isSentToMe = function (tx) {
   var metadata = this.getMetadata(tx);
-  if ('toMe' in metadata) return metadata.toMe
+  if (!('toMe' in metadata)) {
+    return metadata.toMe = tx.outs.map(this.getAddressFromOutput)
+      .some(this.getPrivateKeyForAddress);
+  }
 
-  return metadata.toMe = tx.outs.map(this.getAddressFromOutput)
-    .some(this.getPrivateKeyForAddress);
+  return metadata.toMe
 }
 
 /**
  * Check if any of these transactions are to this wallet, and update the used address caches
- * 
+ *
  *  @param {Transaction|Transaction Array} txs
  */
-Wallet.prototype.updateAddresses = function(txs) {
+Wallet.prototype.updateAddresses = function (txs) {
   var self = this;
 
   if (!Array.isArray(txs)) txs = [txs]
 
   var txAddrs = []
   for (var i = 0; i < txs.length; i++) {
-    var tx = txs[i] 
+    var tx = txs[i]
     tx = tx.tx || tx
     for (var j = 0; j < tx.outs.length; j++) {
       var out = tx.outs[j];
@@ -311,16 +321,15 @@ Wallet.prototype.updateAddresses = function(txs) {
       var address = bitcoin.Address.fromOutputScript(out.script, bitcoin.networks[this.networkName]).toString()
       if (this.addresses.external.indexOf(address) !== -1 || this.addresses.internal.indexOf(address) !== -1) {
         this.markAsUsed(address)
-      }
-      else {
+      } else {
         txAddrs.push(address)
       }
     }
   }
 
-  if (!txAddrs.length) return
+  if (!txAddrs.length) return;
 
-  ;['internal', 'external'].forEach(function(accountType) {
+  ['internal', 'external'].forEach(function (accountType) {
     var myAddrs = self.addresses[accountType]
     var myNewAddrs = []
     var skipped = 0
@@ -347,25 +356,29 @@ Wallet.prototype.updateAddresses = function(txs) {
 
 // param: `txObj` or
 // `[{tx: txObj1, confirmations: n1, timestamp: t1}, {tx: txObj2, confirmations: n2, timestamp: t2}]`
-Wallet.prototype.processTx = function(txs) {
-  if(!Array.isArray(txs)) {
-    txs = [{tx: txs}]
+Wallet.prototype.processTx = function (txs) {
+  if (!Array.isArray(txs)) {
+    txs = [{
+      tx: txs
+    }]
   }
 
   // check txs against wallet's addresses, generatinga new addresses until we reach the gap limit
 
   this.updateAddresses(txs)
 
-  txs.forEach(function(obj) {
+  txs.forEach(function (obj) {
     var tx = obj.tx
     this.addToGraph(tx)
 
     var id = tx.getId()
-    this.txMetadata[id] = this.txMetadata[id] || { confirmations: null }
-    if(obj.confirmations != null) {
+    this.txMetadata[id] = this.txMetadata[id] || {
+      confirmations: null
+    }
+    if (obj.confirmations != null) {
       this.txMetadata[id].confirmations = obj.confirmations
     }
-    if(obj.timestamp != null) {
+    if (obj.timestamp != null) {
       this.txMetadata[id].timestamp = obj.timestamp
     }
   }, this)
@@ -376,13 +389,13 @@ Wallet.prototype.processTx = function(txs) {
   this.txMetadata = mergeMetadata(feesAndValues, this.txMetadata)
 }
 
-Wallet.prototype.createTx = function(to, value, fee, minConf, data) {
+Wallet.prototype.createTx = function (to, value, fee, minConf, data) {
   var network = bitcoin.networks[this.networkName]
   validate.preCreateTx(to, value, network)
 
   if (minConf == null) minConf = 1
   var utxos = this.getUnspents(minConf)
-  utxos = utxos.sort(function(o1, o2){
+  utxos = utxos.sort(function (o1, o2) {
     return o2.value - o1.value
   })
 
@@ -394,12 +407,12 @@ Wallet.prototype.createTx = function(to, value, fee, minConf, data) {
   builder.addOutput(to, value)
 
   var that = this
-  utxos.some(function(unspent) {
+  utxos.some(function (unspent) {
     builder.addInput(unspent.id, unspent.index)
     addresses.push(unspent.address)
 
     var estimatedFee
-    if(fee == undefined) {
+    if (fee == undefined) {
       estimatedFee = estimateFeePadChangeOutput(builder.buildIncomplete(), network)
     } else {
       estimatedFee = fee
@@ -422,17 +435,17 @@ Wallet.prototype.createTx = function(to, value, fee, minConf, data) {
 
   if (data) builder.addOutput(bitcoin.scripts.nullDataOutput(data), 0)
 
-  addresses.forEach(function(address, i) {
+  addresses.forEach(function (address, i) {
     builder.sign(i, that.getPrivateKeyForAddress(address))
   })
 
   return builder.build()
 }
 
-Wallet.prototype.sendTx = function(tx, done) {
+Wallet.prototype.sendTx = function (tx, done) {
   var that = this
-  this.api.transactions.propagate(tx.toHex(), function(err){
-    if(err) return done(err);
+  this.api.transactions.propagate(tx.toHex(), function (err) {
+    if (err) return done(err);
 
     that.processTx(tx)
     done()
@@ -442,26 +455,26 @@ Wallet.prototype.sendTx = function(tx, done) {
 /**
  *  @param {string|Transaction} tx or id
  */
-Wallet.prototype.getMetadata = function(tx) {
+Wallet.prototype.getMetadata = function (tx) {
   var txId = tx.txId ? tx.txId() : tx;
   return this.txMetadata[txId];
 }
 
-Wallet.prototype.getUnspents = function(minConf) {
+Wallet.prototype.getUnspents = function (minConf) {
   var network = bitcoin.networks[this.networkName]
   var myAddresses = this.getAllAddresses();
   var metadata = this.txMetadata;
-  var confirmedNodes = this.txGraph.getAllNodes().filter(function(n) {
+  var confirmedNodes = this.txGraph.getAllNodes().filter(function (n) {
     var meta = metadata[n.id]
     return meta && meta.confirmations >= minConf
   });
 
-  return confirmedNodes.reduce(function(unspentOutputs, node) {
-    node.tx.outs.forEach(function(out, i) {
+  return confirmedNodes.reduce(function (unspentOutputs, node) {
+    node.tx.outs.forEach(function (out, i) {
       if (bitcoin.scripts.isNullDataOutput(out.script)) return;
 
       var address = bitcoin.Address.fromOutputScript(out.script, network).toString()
-      if(myAddresses.indexOf(address) >= 0 && node.nextNodes[i] == null) {
+      if (myAddresses.indexOf(address) >= 0 && node.nextNodes[i] == null) {
         unspentOutputs.push({
           id: node.id,
           address: address,
@@ -483,30 +496,30 @@ function estimateFeePadChangeOutput(tx, network) {
   return network.estimateFee(tmpTx)
 }
 
-Wallet.prototype.getTransactionHistory = function() {
+Wallet.prototype.getTransactionHistory = function () {
   var txGraph = this.txGraph
   var metadata = this.txMetadata
 
-  var nodes = txGraph.getAllNodes().filter(function(n) {
+  var nodes = txGraph.getAllNodes().filter(function (n) {
     return n.tx != null && metadata[n.id].value != null
-  }).sort(function(a, b) {
+  }).sort(function (a, b) {
     var confDiff = metadata[a.id].confirmations - metadata[b.id].confirmations
-    if(confDiff !== 0) {
+    if (confDiff !== 0) {
       return confDiff
     }
 
     return txGraph.compareNodes(a, b)
   })
 
-  return nodes.map(function(n) {
+  return nodes.map(function (n) {
     return n.tx
   })
 }
 
-Wallet.prototype.markAsUsed = function(address) {
+Wallet.prototype.markAsUsed = function (address) {
   var self = this;
 
-  var found = ['internal', 'external'].some(function(type) { 
+  var found = ['internal', 'external'].some(function (type) {
     var addresses = self.addresses[type]
     var idx = addresses.indexOf(address);
     if (idx !== -1) {
@@ -519,15 +532,15 @@ Wallet.prototype.markAsUsed = function(address) {
   if (!found) {
     var result = this.findHDNode(address)
     if (result) this.markAsUsed(address) // should be in addresses now
-    
+
     // TODO: should mark as used even if it didn't find it, in case we find it later
   }
 }
 
-Wallet.prototype.serialize = function() {
-  var txs = this.txGraph.getAllNodes().reduce(function(memo, node) {
+Wallet.prototype.serialize = function () {
+  var txs = this.txGraph.getAllNodes().reduce(function (memo, node) {
     var tx = node.tx
-    if(tx == null) return memo;
+    if (tx == null) return memo;
 
     memo.push(tx.toHex())
     return memo
@@ -547,7 +560,7 @@ Wallet.prototype.serialize = function() {
   })
 }
 
-Wallet.deserialize = function(json) {
+Wallet.deserialize = function (json) {
   var wallet = new Wallet()
   var deserialized = JSON.parse(json)
   var network = bitcoin.networks[deserialized.networkName]
@@ -566,9 +579,9 @@ Wallet.deserialize = function(json) {
   wallet.addressIndex = {
     external: deserialized.addressIndex.external,
     internal: deserialized.addressIndex.internal
-  }
+  };
 
-  ;['internal', 'external'].forEach(function(accountType) {
+  ['internal', 'external'].forEach(function (accountType) {
     wallet.accounts[accountType] = bitcoin.HDNode.fromBase58(deserialized.accounts[accountType], network)
     wallet.deriveAddresses(accountType, deserialized.addressIndex[accountType])
   })
@@ -578,14 +591,14 @@ Wallet.deserialize = function(json) {
   wallet.txMetadata = deserialized.txMetadata
 
   wallet.txGraph = new TxGraph()
-  deserialized.txs.forEach(function(hex) {
+  deserialized.txs.forEach(function (hex) {
     wallet.addToGraph(bitcoin.Transaction.fromHex(hex), true) // silent add
   })
 
   return wallet
 }
 
-Wallet.prototype.deriveAddresses = function(type, untilId) {
+Wallet.prototype.deriveAddresses = function (type, untilId) {
   if (typeof type === 'undefined' || typeof type === 'number') {
     untilId = type
     type = null
@@ -593,7 +606,7 @@ Wallet.prototype.deriveAddresses = function(type, untilId) {
 
   type = type || 'external'
   var addresses = this.addresses[type]
-  for(var i = 0; i < untilId; i++) {
+  for (var i = 0; i < untilId; i++) {
     addresses[i] = addresses[i] || this.getHDNode(type, i).getAddress().toString();
   }
 
@@ -601,13 +614,13 @@ Wallet.prototype.deriveAddresses = function(type, untilId) {
 }
 
 function mergeMetadata(feesAndValues, metadata) {
-  for(var id in metadata) {
+  for (var id in metadata) {
     var fee = feesAndValues[id].fee
-    if(fee != null) metadata[id].fee = fee
+    if (fee != null) metadata[id].fee = fee
 
     var value = feesAndValues[id].value
-    if(value < 0) value += fee
-    if(value != null) metadata[id].value = value
+    if (value < 0) value += fee
+    if (value != null) metadata[id].value = value
   }
 
   return metadata
