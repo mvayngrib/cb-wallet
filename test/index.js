@@ -21,8 +21,8 @@ describe('Common Blockchain Wallet', function() {
 
     before(function(done) {
       wallet = new Wallet({
-        externalAccount: fixtures.externalAccount, 
-        internalAccount: fixtures.internalAccount, 
+        externalAccount: fixtures.accounts.external,
+        internalAccount: fixtures.accounts.internal,
         networkName: 'testnet'
       }, done)
     })
@@ -39,12 +39,12 @@ describe('Common Blockchain Wallet', function() {
 
       it('accepts externalAccount and internalAccount as objects', function() {
         new Wallet({
-          externalAccount: HDNode.fromBase58(fixtures.externalAccount), 
-          internalAccount: HDNode.fromBase58(fixtures.internalAccount), 
+          externalAccount: HDNode.fromBase58(fixtures.accounts.external), 
+          internalAccount: HDNode.fromBase58(fixtures.accounts.internal), 
           networkName: 'testnet'
         }, function(err, w) {
-          assert.equal(w.externalAccount.toBase58(), fixtures.externalAccount)
-          assert.equal(w.internalAccount.toBase58(), fixtures.internalAccount)
+          assert.equal(w.accounts.external.toBase58(), fixtures.accounts.external)
+          assert.equal(w.accounts.internal.toBase58(), fixtures.accounts.internal)
         })
       })
 
@@ -54,16 +54,16 @@ describe('Common Blockchain Wallet', function() {
           assert.equal(wallet.txGraph.heads.length, 1)
         })
 
-        it('assigns externalAccount and internalAccount', function() {
-          assert.equal(wallet.externalAccount.toBase58(), fixtures.externalAccount)
-          assert.equal(wallet.internalAccount.toBase58(), fixtures.internalAccount)
+        it('assigns accounts.external and accounts.internal', function() {
+          assert.equal(wallet.accounts.external.toBase58(), fixtures.accounts.external)
+          assert.equal(wallet.accounts.internal.toBase58(), fixtures.accounts.internal)
         })
 
         it('assigns addresses and changeAddresses', function() {
           // assert.deepEqual(wallet.addresses, addresses)
           // assert.deepEqual(wallet.changeAddresses, changeAddresses)
-          assert(addresses.every(function(a) { return wallet.addresses.indexOf(a) !== -1 }))
-          assert(changeAddresses.every(function(a) { return wallet.changeAddresses.indexOf(a) !== -1 }))
+          assert(addresses.every(function(a) { return wallet.addresses.external.indexOf(a) !== -1 }))
+          assert(changeAddresses.every(function(a) { return wallet.addresses.internal.indexOf(a) !== -1 }))
         })
 
         it('assigns networkName', function() {
@@ -86,15 +86,15 @@ describe('Common Blockchain Wallet', function() {
 
     describe('serialization & deserialization', function() {
       it('works', function() {
-        debugger;
         var parsed = Wallet.deserialize(wallet.serialize())
 
         assert.equal(parsed.txGraph.heads.length, wallet.txGraph.heads.length)
         assert.equal(parsed.txGraph.heads[0].id, wallet.txGraph.heads[0].id)
-        assert.equal(parsed.externalAccount.toBase58(), wallet.externalAccount.toBase58())
-        assert.equal(parsed.internalAccount.toBase58(), wallet.internalAccount.toBase58())
-        assert.equal(parsed.addressIndex, wallet.addressIndex)
-        assert.equal(parsed.changeAddressIndex, wallet.changeAddressIndex)
+        assert.equal(parsed.accounts.external.toBase58(), wallet.accounts.external.toBase58())
+        assert.equal(parsed.accounts.internal.toBase58(), wallet.accounts.internal.toBase58())
+        assert.equal(parsed.addressIndex.external, wallet.addressIndex.external)
+        assert.equal(parsed.addressIndex.internal, wallet.addressIndex.internal)
+        assert.equal(parsed.gapLimit, wallet.gapLimit)
         assert.equal(parsed.networkName, wallet.networkName)
         assert.deepEqual(parsed.api, wallet.api)
         assert.deepEqual(parsed.txMetadata, wallet.txMetadata)
@@ -119,7 +119,7 @@ describe('Common Blockchain Wallet', function() {
 
         var tx = new Transaction()
         tx.addInput(fundingTx, 0)
-        tx.addOutput(tmpWallet.changeAddresses[0], 200000)
+        tx.addOutput(tmpWallet.addresses.internal[0], 200000)
 
         tmpWallet.processTx(tx)
 
@@ -135,8 +135,8 @@ describe('Common Blockchain Wallet', function() {
       })
 
       it('does not miss pending unspents', function() {
-        wallet = Wallet.deserialize(JSON.stringify(balanceFixtures))
-        assert.equal(wallet.getBalance(), 52388527)
+        var tmpWallet = Wallet.deserialize(JSON.stringify(balanceFixtures))
+        assert.equal(tmpWallet.getBalance(), 52388527)
       })
 
       function fundAddressZero(wallet, amount) {
@@ -148,7 +148,7 @@ describe('Common Blockchain Wallet', function() {
 
         var tx = new Transaction()
         tx.addInput(prevTx, 0)
-        tx.addOutput(wallet.addresses[0], amount)
+        tx.addOutput(wallet.addresses.external[0], amount)
 
         wallet.processTx([{tx: tx, confirmations: 3}, {tx: prevTx}])
 
@@ -172,11 +172,11 @@ describe('Common Blockchain Wallet', function() {
       it('returns the private key for the given address', function(){
         assert.equal(
           wallet.getPrivateKeyForAddress(addresses[1]).toWIF(),
-          wallet.externalAccount.derive(1).privKey.toWIF()
+          wallet.accounts.external.derive(1).privKey.toWIF()
         )
         assert.equal(
           wallet.getPrivateKeyForAddress(changeAddresses[0]).toWIF(),
-          wallet.internalAccount.derive(0).privKey.toWIF()
+          wallet.accounts.internal.derive(0).privKey.toWIF()
         )
       })
 
@@ -233,11 +233,11 @@ describe('Common Blockchain Wallet', function() {
         })
 
         it('adds the next change address to changeAddresses if the it is used to receive funds', function() {
-          assert.equal(tmpWallet.changeAddresses.indexOf(nextChangeAddress), tmpWallet.changeAddresses.length - 1)
+          assert.equal(tmpWallet.addresses.internal.indexOf(nextChangeAddress), tmpWallet.addresses.internal.length - 1)
         })
 
         it('adds the next address to addresses if the it is used to receive funds', function() {
-          assert.equal(tmpWallet.addresses.indexOf(nextAddress), tmpWallet.addresses.length - 1)
+          assert.equal(tmpWallet.addresses.external.indexOf(nextAddress), tmpWallet.addresses.external.length - 1)
         })
 
         it('does not add the same address more than once', function() {
@@ -253,7 +253,7 @@ describe('Common Blockchain Wallet', function() {
 
           tmpWallet.processTx([{tx: aTx}, {tx: bTx}])
 
-          assert.equal(tmpWallet.addresses.indexOf(nextNextAddress), tmpWallet.addresses.length - 1)
+          assert.equal(tmpWallet.addresses.external.indexOf(nextNextAddress), tmpWallet.addresses.external.length - 1)
         })
 
         it('loops back to check on addresses again if a next address is found used', function() {
@@ -271,8 +271,8 @@ describe('Common Blockchain Wallet', function() {
 
           tmpWallet.processTx([{tx: bTx}, {tx: aTx}])
 
-          assert.equal(tmpWallet.addresses.indexOf(nextNextAddress), tmpWallet.addresses.length - 2)
-          assert.equal(tmpWallet.addresses.indexOf(nextNextNextAddress), tmpWallet.addresses.length - 1)
+          assert.equal(tmpWallet.addresses.external.indexOf(nextNextAddress), tmpWallet.addresses.external.length - 2)
+          assert.equal(tmpWallet.addresses.external.indexOf(nextNextNextAddress), tmpWallet.addresses.external.length - 1)
         })
       })
 
@@ -337,8 +337,8 @@ describe('Common Blockchain Wallet', function() {
         value = 500000
         unspentTxs = []
 
-        address1 = wallet.addresses[0]
-        address2 = wallet.changeAddresses[0]
+        address1 = wallet.addresses.external[0]
+        address2 = wallet.addresses.internal[0]
 
         var pair0 = createTxPair(address1, 400000) // not enough for value
         unspentTxs.push(pair0.tx)

@@ -1,8 +1,12 @@
 {
-  "externalAccount":"xprv9wgkWh3GXN9NsMux4k1Xuocj4HiFEnDQxwr98Gxp6Rdgunehir88G3SuVLE4Lbq688q52Xar9hfGzMatLEvUz3QsyeNkTVcdnMqyBKhEUvd",
-  "internalAccount":"xprv9wgkWh3GXN9NtnmjwHcmmtpDeUZqQAaQv9EL5YgicH9hXEFSCs6XJv57RZiUhqs28uSeq82ZLmaBDd8mJeZfTi4tM2Hbwr49TupneYdNdqA",
-  "addressIndex":1,
-  "changeAddressIndex":2,
+  "accounts": {
+    "external": "xprv9wgkWh3GXN9NsMux4k1Xuocj4HiFEnDQxwr98Gxp6Rdgunehir88G3SuVLE4Lbq688q52Xar9hfGzMatLEvUz3QsyeNkTVcdnMqyBKhEUvd",
+    "internal": "xprv9wgkWh3GXN9NtnmjwHcmmtpDeUZqQAaQv9EL5YgicH9hXEFSCs6XJv57RZiUhqs28uSeq82ZLmaBDd8mJeZfTi4tM2Hbwr49TupneYdNdqA"
+  },
+  "addressIndex": {
+    "external": 1,
+    "internal":2
+  },
   "networkName":"bitcoin",
   "txs":[
     "0100000001876c299eca8b7f4a76d36e8566094f2823ccc19064c03ee01d8f773273720b33000000006a47304402203374aef86bb2cf9e495ad4f7a67331cba1d0795a362132dfdbcd1fd098cfedb8022070db6528827b025c7e6b7b46407781efe68dcc1870e8904278d41e19c21231e30121020f87a1770aa861f5fcbaf46188a4791222f1954cbd51b1a35fbc65b49b1f0658ffffffff02f0490200000000001976a914da5dde883cc084fad0d72ab4cdeb11205fc63bf888acff431b03000000001976a91451be578f1bf50eddaa8bd5e71b9bddbc193bb1bb88ac00000000",
