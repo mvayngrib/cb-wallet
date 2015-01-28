@@ -190,10 +190,10 @@ describe('Common Blockchain Wallet', function() {
         )
       })
 
-      it('raises an error when address is not found', function() {
-        assert.throws(function() {
-          wallet.getPrivateKeyForAddress(changeAddresses[changeAddresses.length])
-        }, /Unknown address. Make sure the address is from the keychain and has been generated./)
+      it('returns null/undefined if address is not found', function() {
+        // assert.throws(function() {
+        assert(wallet.getPrivateKeyForAddress(changeAddresses[changeAddresses.length]) == null);
+        // }, /Unknown address. Make sure the address is from the keychain and has been generated./)
       })
     })
 

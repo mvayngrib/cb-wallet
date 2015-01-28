@@ -270,9 +270,7 @@ Wallet.prototype.getAddressIndex = function(type, address) {
 
 Wallet.prototype.getPrivateKeyForAddress = function(address) {
   var result = this.findHDNode(address)
-  if (result) return result.hdNode.privKey
-
-  throw new Error('Unknown address. Make sure the address is from the keychain and has been generated.')
+  return result && result.hdNode.privKey
 }
 
 Wallet.prototype.getPublicKeyForAddress = function(address) {
