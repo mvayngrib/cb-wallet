@@ -4,14 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "cp node_modules/tradle-style/.js* .",
-    "jsbeautify": "js-beautify -r **.js",
-    "jshint": "jshint **.js",
+    "jsbeautify": "js-beautify -r {*.js,test/*.js} --config node_modules/tradle-style/.jsbeautifyrc",
+    "jshint": "jshint {*.js,**/*.js} --config node_modules/tradle-style/.jshintrc --exclude-path=.gitignore",
+    "jscs": "jscs {*.js,**/*.js} --config node_modules/tradle-style/.jscsrc",
     "test": "mocha test"
   },
   "pre-commit": [
     "test",
-    "jsbeautify",
+    "jscs",
     "jshint"
   ],
   "dependencies": {
