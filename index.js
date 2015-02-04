@@ -10,40 +10,43 @@ var validate = require('./validator')
 var EventEmitter = require('events').EventEmitter
 var inherits = require('util').inherits
 var DEFAULT_GAP_LIMIT = 10
+var INTERNAL = 'internal'
+var EXTERNAL = 'external'
+var BITCOIN_ACCOUNTS = [INTERNAL, EXTERNAL]
 
 /**
- *  @param {string|HDNode}   options.externalAccount
- *  @param {string|HDNode}   options.internalAccount
+ *  @param {string|HDNode}   options.external
+ *  @param {string|HDNode}   options.internal
  *  @param {string}          options.networkName
  *  @param {int} (optional)  options.gapLimit
  *  @param {function}        done
  */
 function Wallet(options, done) {
+  var self = this
+
   EventEmitter.call(this)
 
   if (arguments.length === 0) return this
 
   this.accounts = {}
-  this.hdNodes = {
-    external: [],
-    internal: []
-  }
-
+  this.hdNodes = {}
+  this.addressIndex = {}
+  this.addresses = {}
   try {
-    if (typeof options.externalAccount === 'string') {
-      this.accounts.external = bitcoin.HDNode.fromBase58(options.externalAccount)
-    } else {
-      this.accounts.external = options.externalAccount
-    }
+    BITCOIN_ACCOUNTS.forEach(function(accountType) {
+      var option = accountType + 'Account';
+      var account = options[option]
+      if (typeof account === 'string') {
+        self.accounts[accountType] = bitcoin.HDNode.fromBase58(account)
+      } else {
+        self.accounts[accountType] = account
+      }
 
-    if (typeof options.internalAccount === 'string') {
-      this.accounts.internal = bitcoin.HDNode.fromBase58(options.internalAccount)
-    } else {
-      this.accounts.internal = options.internalAccount
-    }
-
-    assert(this.accounts.external, 'externalAccount cannot be null')
-    assert(this.accounts.internal, 'internalAccount cannot be null')
+      assert(self.accounts[accountType], option + ' cannot be null')
+      self.hdNodes[accountType] = []
+      self.addresses[accountType] = []
+      self.addressIndex[accountType] = 0
+    })
   } catch (e) {
     return done(e)
   }
@@ -53,16 +56,6 @@ function Wallet(options, done) {
   this.api = new API(this.networkName)
   this.txGraph = new TxGraph()
   this.txMetadata = {}
-
-  this.addresses = {
-    internal: [], // change addresses
-    external: []
-  }
-
-  this.addressIndex = {
-    internal: 0,
-    external: 0
-  }
 
   this.bootstrap(done)
 }
@@ -114,9 +107,10 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
   fetchTransactions(this.api, addresses, blockHeight, function(err, txs, metadata) {
     if (err) return callback(err);
 
-    var added = txs.filter(function(tx) {
-      return self.addToGraph(tx)
-    })
+    var changed = []
+    for (var i = 0; i < txs.length; i++) {
+      if (self.addToGraph(txs[i])) changed.push(txs[i])
+    }
 
     var feesAndValues = self.txGraph.calculateFeesAndValues(addresses, bitcoin.networks[self.networkName])
     metadata = mergeMetadata(feesAndValues, metadata)
@@ -126,13 +120,15 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
         // TODO: use deep equal instead of abusing assert
         assert.deepEqual(self.txMetadata[id], metadata[id])
       } catch (err) {
+        var tx = self.txGraph.findNodeById(id).tx
         self.txMetadata[id] = metadata[id]
-        self.emit('transaction:update', self.txGraph.findNodeById(id).tx)
+        self.emit('transaction:update', tx)
+        changed.push(tx)
         numUpdates++
       }
     }
 
-    if (added.length) self.updateAddresses(added)
+    self.updateAddresses(changed)
 
     callback(null, numUpdates)
   })
@@ -179,7 +175,7 @@ Wallet.prototype.getBlockHeight = function(confirmations) {
 }
 
 Wallet.prototype.getAddresses = function(internal) {
-  return this.addresses[internal ? 'internal' : 'external'];
+  return this.addresses[internal ? INTERNAL : EXTERNAL];
 }
 
 Wallet.prototype.getAllAddresses = function() {
@@ -209,7 +205,7 @@ Wallet.prototype.getNextAddress = function(type, offset) {
 }
 
 Wallet.prototype.getNextChangeAddress = function(offset) {
-  return this.getNextAddress('internal', offset);
+  return this.getNextAddress(INTERNAL, offset);
 }
 
 /**
@@ -220,8 +216,8 @@ Wallet.prototype.getNextChangeAddress = function(offset) {
 Wallet.prototype.isChangeAddress = function(address) {
   var addrStr = address.toBase58Check ? address.toString() : address
 
-  if (this.getAddressIndex('internal', addrStr) !== -1) return true
-  if (this.getAddressIndex('external', addrStr) !== -1) return false
+  if (this.getAddressIndex(INTERNAL, addrStr) !== -1) return true
+  if (this.getAddressIndex(EXTERNAL, addrStr) !== -1) return false
 }
 
 Wallet.prototype.getReceiveAddress = function() {
@@ -232,7 +228,7 @@ Wallet.prototype.findHDNode = function(address) {
   var self = this
   var info;
 
-  ['internal', 'external'].some(function(accountType) {
+  BITCOIN_ACCOUNTS.some(function(accountType) {
     var idx = self.getAddressIndex(accountType, address);
     if (idx !== -1) {
       info = {
@@ -298,6 +294,18 @@ Wallet.prototype.isSentToMe = function(tx) {
   return metadata.toMe
 }
 
+Wallet.prototype.getAddressFromInput = function(input) {
+  if (bitcoin.scripts.classifyInput(input.script) === 'pubkeyhash') {
+    return bitcoin.ECPubKey.fromBuffer(input.script.chunks[1]).getAddress(bitcoin.networks[this.networkName]).toString();
+  }
+}
+
+Wallet.prototype.getAddressFromOutput = function(out) {
+  if (bitcoin.scripts.classifyOutput(out.script) === 'pubkeyhash') {
+    return bitcoin.Address.fromOutputScript(out.script, bitcoin.networks[this.networkName]).toString();
+  }
+}
+
 /**
  * Check if any of these transactions are to this wallet, and update the used address caches
  *
@@ -314,9 +322,9 @@ Wallet.prototype.updateAddresses = function(txs) {
     tx = tx.tx || tx
     for (var j = 0; j < tx.outs.length; j++) {
       var out = tx.outs[j];
-      if (bitcoin.scripts.isNullDataOutput(out.script)) continue;
+      var address = this.getAddressFromOutput(out)
+      if (!address) continue
 
-      var address = bitcoin.Address.fromOutputScript(out.script, bitcoin.networks[this.networkName]).toString()
       if (this.addresses.external.indexOf(address) !== -1 || this.addresses.internal.indexOf(address) !== -1) {
         this.markAsUsed(address)
       } else {
@@ -325,9 +333,9 @@ Wallet.prototype.updateAddresses = function(txs) {
     }
   }
 
-  if (!txAddrs.length) return;
+  if (!txAddrs.length) return
 
-  ['internal', 'external'].forEach(function(accountType) {
+  BITCOIN_ACCOUNTS.forEach(function(accountType) {
     var myAddrs = self.addresses[accountType]
     var myNewAddrs = []
     var skipped = 0
@@ -459,7 +467,7 @@ Wallet.prototype.getMetadata = function(tx) {
 }
 
 Wallet.prototype.getUnspents = function(minConf) {
-  var network = bitcoin.networks[this.networkName]
+  var self = this
   var myAddresses = this.getAllAddresses();
   var metadata = this.txMetadata;
   var confirmedNodes = this.txGraph.getAllNodes().filter(function(n) {
@@ -469,10 +477,8 @@ Wallet.prototype.getUnspents = function(minConf) {
 
   return confirmedNodes.reduce(function(unspentOutputs, node) {
     node.tx.outs.forEach(function(out, i) {
-      if (bitcoin.scripts.isNullDataOutput(out.script)) return;
-
-      var address = bitcoin.Address.fromOutputScript(out.script, network).toString()
-      if (myAddresses.indexOf(address) >= 0 && node.nextNodes[i] == null) {
+      var address = self.getAddressFromOutput(out)
+      if (address && myAddresses.indexOf(address) >= 0 && node.nextNodes[i] == null) {
         unspentOutputs.push({
           id: node.id,
           address: address,
@@ -517,7 +523,7 @@ Wallet.prototype.getTransactionHistory = function() {
 Wallet.prototype.markAsUsed = function(address) {
   var self = this;
 
-  var found = ['internal', 'external'].some(function(type) {
+  var found = BITCOIN_ACCOUNTS.some(function(type) {
     var addresses = self.addresses[type]
     var idx = addresses.indexOf(address);
     if (idx !== -1) {
@@ -544,11 +550,13 @@ Wallet.prototype.serialize = function() {
     return memo
   }, [])
 
+  var accounts = {}
+  for (var name in this.accounts) {
+    accounts[name] = this.accounts[name].toBase58()
+  }
+
   return JSON.stringify({
-    accounts: {
-      external: this.accounts.external.toBase58(),
-      internal: this.accounts.internal.toBase58()
-    },
+    accounts: accounts,
     addressIndex: this.addressIndex,
     addresses: this.addresses,
     networkName: this.networkName,
@@ -579,7 +587,7 @@ Wallet.deserialize = function(json) {
     internal: deserialized.addressIndex.internal
   };
 
-  ['internal', 'external'].forEach(function(accountType) {
+  BITCOIN_ACCOUNTS.forEach(function(accountType) {
     wallet.accounts[accountType] = bitcoin.HDNode.fromBase58(deserialized.accounts[accountType], network)
     wallet.deriveAddresses(accountType, deserialized.addressIndex[accountType])
   })
