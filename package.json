@@ -20,7 +20,8 @@
     "bitcoin-tx-graph": "git://github.com/tradle/bitcoin-transaction-graph.git",
     "bitcoinjs-lib": "^1.2.0",
     "cb-blockr": "^3.0.0",
-    "debug": "^2.1.1"
+    "debug": "^2.1.1",
+    "deep-equal": "^0.2.1"
   },
   "devDependencies": {
     "mocha": "^1.21.4",

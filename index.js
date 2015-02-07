@@ -4,6 +4,7 @@ var API = require('cb-blockr')
 var bitcoin = require('bitcoinjs-lib')
 var TxGraph = require('bitcoin-tx-graph')
 var assert = require('assert')
+var deepEqual = require('deep-equal');
 var discoverAddresses = require('./network').discoverAddresses
 var fetchTransactions = require('./network').fetchTransactions
 var validate = require('./validator')
@@ -116,16 +117,14 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
     metadata = mergeMetadata(feesAndValues, metadata)
 
     for (var id in metadata) {
-      try {
-        // TODO: use deep equal instead of abusing assert
-        assert.deepEqual(self.txMetadata[id], metadata[id])
-      } catch (err) {
-        var tx = self.txGraph.findNodeById(id).tx
-        self.txMetadata[id] = metadata[id]
-        self.emit('transaction:update', tx)
-        changed.push(tx)
-        numUpdates++
-      }
+      // TODO: use deep equal instead of abusing assert
+      if (deepEqual(self.txMetadata[id], metadata[id])) continue
+
+      var tx = self.txGraph.findNodeById(id).tx
+      self.txMetadata[id] = metadata[id]
+      self.emit('transaction:update', tx)
+      changed.push(tx)
+      numUpdates++
     }
 
     self.updateAddresses(changed)
