@@ -95,7 +95,6 @@ Wallet.prototype.discoverAddresses = function(gapLimit, callback) {
 Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
   var self = this
   var addresses = this.getAllAddresses()
-  var numUpdates = 0
 
   if (!addresses.length) return process.nextTick(function() {
     callback(null, 0)
@@ -109,27 +108,27 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
     if (err) return callback(err);
 
     var changed = []
-    for (var i = 0; i < txs.length; i++) {
-      if (self.addToGraph(txs[i])) changed.push(txs[i])
+    var i;
+    for (i = 0; i < txs.length; i++) {
+      self.addToGraph(txs[i]);
     }
 
     var feesAndValues = self.txGraph.calculateFeesAndValues(addresses, bitcoin.networks[self.networkName])
     metadata = mergeMetadata(feesAndValues, metadata)
 
-    for (var id in metadata) {
-      // TODO: use deep equal instead of abusing assert
+    for (i = 0; i < txs.length; i++) {
+      var tx = txs[i];
+      var id = tx.getId();
       if (deepEqual(self.txMetadata[id], metadata[id])) continue
 
-      var tx = self.txGraph.findNodeById(id).tx
       self.txMetadata[id] = metadata[id]
       self.emit('transaction:update', tx)
       changed.push(tx)
-      numUpdates++
     }
 
     self.updateAddresses(changed)
 
-    callback(null, numUpdates)
+    callback(null, changed.length)
   })
 }
 

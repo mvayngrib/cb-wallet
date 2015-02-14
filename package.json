@@ -10,9 +10,9 @@
     "test": "mocha test"
   },
   "pre-commit": [
-    "test",
     "jscs",
-    "jshint"
+    "jshint",
+    "test"
   ],
   "dependencies": {
     "async": "^0.9.0",
