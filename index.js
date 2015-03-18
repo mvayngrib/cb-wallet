@@ -10,6 +10,7 @@ var fetchTransactions = require('./network').fetchTransactions
 var validate = require('./validator')
 var EventEmitter = require('events').EventEmitter
 var inherits = require('util').inherits
+var TxBuilder = require('./txbuilder');
 var DEFAULT_GAP_LIMIT = 10
 var INTERNAL = 'internal'
 var EXTERNAL = 'external'
@@ -96,13 +97,13 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
   var self = this
   var addresses = this.getAllAddresses()
 
-  if (!addresses.length) return process.nextTick(function() {
-    callback(null, 0)
-  })
-
   if (typeof blockHeight === 'function') callback = blockHeight
 
   blockHeight = typeof blockHeight === 'number' ? blockHeight : 0
+
+  if (!addresses.length) return process.nextTick(function() {
+    callback(null, 0)
+  })
 
   fetchTransactions(this.api, addresses, blockHeight, function(err, txs, metadata) {
     if (err) return callback(err);
@@ -393,22 +394,57 @@ Wallet.prototype.processTx = function(txs) {
   this.txMetadata = mergeMetadata(feesAndValues, this.txMetadata)
 }
 
-Wallet.prototype.createTx = function(to, value, fee, minConf /*, data */ ) {
-  var network = bitcoin.networks[this.networkName]
-  validate.preCreateTx(to, value, network)
+Wallet.prototype.buildTx = function() {
+  var self = this;
+  var builder = new TxBuilder();
+  var build = builder.build;
 
-  if (minConf == null) minConf = 1
-  var utxos = this.getUnspents(minConf)
+  builder.build = function() {
+    return self._createTx(build.call(builder));
+  }
+
+  return builder;
+}
+
+Wallet.prototype.createTx = function(to, value, fee, minConf, data) {
+  if (typeof to === 'object') {
+    return this._createTx(to);
+  }
+  else {
+    return this.buildTx()
+      .to(to, value)
+      .fee(fee)
+      .minConf(minConf)
+      .data(data)
+      .build()
+  }
+}
+
+Wallet.prototype._createTx = function(build) {
+  var network = bitcoin.networks[this.networkName]
+  var value = 0
+  var to = build.to
+  var builder = new bitcoin.TransactionBuilder()
+  for (var addr in build.to) {
+    validate.preCreateTx(addr, to[addr], network)
+    value += to[addr]
+    builder.addOutput(addr, to[addr])
+  }
+
+  var utxos = this.getUnspents(build.minConf)
   utxos = utxos.sort(function(o1, o2) {
     return o2.value - o1.value
   })
 
+  if (build.from) {
+    utxos = utxos.filter(function(u) {
+      return u.address === build.from
+    })
+  }
+
   var accum = 0
   var subTotal = value
   var addresses = []
-
-  var builder = new bitcoin.TransactionBuilder()
-  builder.addOutput(to, value)
 
   var self = this
   utxos.some(function(unspent) {
@@ -416,10 +452,10 @@ Wallet.prototype.createTx = function(to, value, fee, minConf /*, data */ ) {
     addresses.push(unspent.address)
 
     var estimatedFee
-    if (typeof fee === 'undefined') {
+    if (typeof build.fee === 'undefined') {
       estimatedFee = estimateFeePadChangeOutput(builder.buildIncomplete(), network)
     } else {
-      estimatedFee = fee
+      estimatedFee = build.fee
     }
 
     accum += unspent.value
@@ -435,9 +471,9 @@ Wallet.prototype.createTx = function(to, value, fee, minConf /*, data */ ) {
     }
   })
 
-  validate.postCreateTx(subTotal, accum, this.getBalance(minConf))
+  validate.postCreateTx(subTotal, accum, this.getBalance(build.minConf))
 
-  // if (data) builder.addOutput(bitcoin.scripts.nullDataOutput(data), 0)
+  if (build.data) builder.addOutput(bitcoin.scripts.nullDataOutput(build.data), 0)
 
   addresses.forEach(function(address, i) {
     builder.sign(i, self.getPrivateKeyForAddress(address))
