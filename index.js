@@ -50,7 +50,8 @@ function Wallet(options, done) {
       self.addressIndex[accountType] = 0
     })
   } catch (e) {
-    return done(e)
+    done(e)
+    return this
   }
 
   this.gapLimit = options.gapLimit || DEFAULT_GAP_LIMIT
@@ -109,35 +110,38 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
     if (err) return callback(err);
 
     var changed = []
-    var i;
-    for (i = 0; i < txs.length; i++) {
-      self.addToGraph(txs[i]);
+    if (txs.length) {
+      var i;
+      for (i = 0; i < txs.length; i++) {
+        self.addToGraph(txs[i])
+      }
+
+      var feesAndValues = self.txGraph.calculateFeesAndValues(addresses, bitcoin.networks[self.networkName])
+      mergeMetadata(feesAndValues, metadata)
+
+      for (i = 0; i < txs.length; i++) {
+        var tx = txs[i]
+        var id = tx.getId()
+        if (!deepEqual(self.txMetadata[id], metadata[id])) {
+          self.txMetadata[id] = metadata[id]
+          changed.push(tx)
+        }
+      }
+
+      self.updateAddresses(changed)
     }
 
-    var feesAndValues = self.txGraph.calculateFeesAndValues(addresses, bitcoin.networks[self.networkName])
-    metadata = mergeMetadata(feesAndValues, metadata)
-
-    for (i = 0; i < txs.length; i++) {
-      var tx = txs[i];
-      var id = tx.getId();
-      if (deepEqual(self.txMetadata[id], metadata[id])) continue
-
-      self.txMetadata[id] = metadata[id]
-      self.emit('transaction:update', tx)
-      changed.push(tx)
-    }
-
-    self.updateAddresses(changed)
+    changed.forEach(function(tx) {
+      self.emit('tx', tx)
+    })
 
     callback(null, changed.length)
   })
 }
 
-Wallet.prototype.addToGraph = function(tx, silent) {
-  var added = this.txGraph.addTx(tx)
-  if (added && !silent) this.emit('transaction:new', tx)
-
-  return added
+Wallet.prototype.addToGraph = function(tx) {
+  var self = this
+  return this.txGraph.addTx(tx)
 }
 
 Wallet.prototype.sync = function(callback) {
@@ -391,7 +395,7 @@ Wallet.prototype.processTx = function(txs) {
   //FIXME: make me more effecient
   var myAddresses = this.getAllAddresses()
   var feesAndValues = this.txGraph.calculateFeesAndValues(myAddresses, bitcoin.networks[this.networkName])
-  this.txMetadata = mergeMetadata(feesAndValues, this.txMetadata)
+  mergeMetadata(feesAndValues, this.txMetadata)
 }
 
 Wallet.prototype.buildTx = function() {
@@ -488,6 +492,7 @@ Wallet.prototype.sendTx = function(tx, done) {
     if (err) return done(err);
 
     self.processTx(tx)
+    self.emit('tx', tx)
     done()
   })
 }
@@ -496,7 +501,7 @@ Wallet.prototype.sendTx = function(tx, done) {
  *  @param {string|Transaction} tx or id
  */
 Wallet.prototype.getMetadata = function(tx) {
-  var txId = tx.txId ? tx.txId() : tx;
+  var txId = tx.getId ? tx.getId() : tx;
   return this.txMetadata[txId];
 }
 
@@ -561,8 +566,11 @@ Wallet.prototype.markAsUsed = function(address) {
     var addresses = self.addresses[type]
     var idx = addresses.indexOf(address);
     if (idx !== -1) {
-      self.addressIndex[type] = Math.max(self.addressIndex[type], idx)
-      self.emit('usedaddress', address)
+      if (idx > self.addressIndex[type]) {
+        self.addressIndex[type] = idx
+        self.emit('usedaddress', address)
+      }
+
       return true
     }
   })
@@ -632,7 +640,7 @@ Wallet.deserialize = function(json) {
 
   wallet.txGraph = new TxGraph()
   deserialized.txs.forEach(function(hex) {
-    wallet.addToGraph(bitcoin.Transaction.fromHex(hex), true) // silent add
+    wallet.addToGraph(bitcoin.Transaction.fromHex(hex))
   })
 
   return wallet
