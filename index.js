@@ -280,8 +280,8 @@ Wallet.prototype.getPublicKeyForAddress = function(address) {
 Wallet.prototype.isSentByMe = function(tx) {
   var metadata = this.getMetadata(tx)
   if (!('fromMe' in metadata)) {
-    metadata.fromMe = tx.ins.map(this.getAddressFromInput)
-      .some(this.getPrivateKeyForAddress)
+    metadata.fromMe = tx.ins.map(this.getAddressFromInput, this)
+      .some(this.getPrivateKeyForAddress, this)
   }
 
   return metadata.fromMe
@@ -290,8 +290,8 @@ Wallet.prototype.isSentByMe = function(tx) {
 Wallet.prototype.isSentToMe = function(tx) {
   var metadata = this.getMetadata(tx);
   if (!('toMe' in metadata)) {
-    metadata.toMe = tx.outs.map(this.getAddressFromOutput)
-      .some(this.getPrivateKeyForAddress);
+    metadata.toMe = tx.outs.map(this.getAddressFromOutput, this)
+      .some(this.getPrivateKeyForAddress, this);
   }
 
   return metadata.toMe
