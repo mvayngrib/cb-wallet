@@ -17,6 +17,7 @@ var DEFAULT_GAP_LIMIT = 10
 var INTERNAL = 'internal'
 var EXTERNAL = 'external'
 var BITCOIN_ACCOUNTS = [INTERNAL, EXTERNAL]
+var noop = function() {}
 
 /**
  *  @param {string|HDNode}   options.external
@@ -84,6 +85,7 @@ Wallet.prototype.discoverAddresses = function(gapLimit, callback) {
   if (typeof gapLimit === 'function') callback = gapLimit
 
   gapLimit = typeof gapLimit === 'number' ? gapLimit : this.gapLimit
+  callback = callback || noop
   discoverAddresses(this.api, accounts, gapLimit, function(err, addresses, changeAddresses) {
     if (err) return callback(err)
 
@@ -103,6 +105,8 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
   if (typeof blockHeight === 'function') callback = blockHeight
 
   blockHeight = typeof blockHeight === 'number' ? blockHeight : 0
+
+  callback = callback || noop
 
   if (!addresses.length) return process.nextTick(function() {
     callback(null, 0)
