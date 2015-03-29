@@ -1,6 +1,8 @@
 'use strict';
 
-var API = require('cb-blockr')
+module.exports = Wallet;
+// allow override from outside
+module.exports.API = require('cb-blockr')
 var bitcoin = require('bitcoinjs-lib')
 var TxGraph = require('bitcoin-tx-graph')
 var assert = require('assert')
@@ -56,7 +58,7 @@ function Wallet(options, done) {
 
   this.gapLimit = options.gapLimit || DEFAULT_GAP_LIMIT
   this.networkName = options.networkName
-  this.api = new API(this.networkName)
+  this.api = new module.exports.API(this.networkName)
   this.txGraph = new TxGraph()
   this.txMetadata = {}
 
@@ -635,7 +637,7 @@ Wallet.deserialize = function(json) {
   })
 
   wallet.networkName = deserialized.networkName
-  wallet.api = new API(deserialized.networkName)
+  wallet.api = new module.exports.API(deserialized.networkName)
   wallet.txMetadata = deserialized.txMetadata
 
   wallet.txGraph = new TxGraph()
@@ -673,5 +675,3 @@ function mergeMetadata(feesAndValues, metadata) {
 
   return metadata
 }
-
-module.exports = Wallet
