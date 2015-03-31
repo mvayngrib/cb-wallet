@@ -20,7 +20,7 @@
     "bitcoinjs-lib": "^1.2.0",
     "cb-blockr": "^3.0.0",
     "debug": "^2.1.1",
-    "deep-equal": "^0.2.1"
+    "extend": "^2.0.0"
   },
   "devDependencies": {
     "mocha": "^1.21.4",

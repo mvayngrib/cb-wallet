@@ -21,7 +21,6 @@ function discoverAddressesForAccounts(api, accounts, gapLimit, callback) {
 
 function discoverUsedAddresses(api, account, gapLimit, done) {
   gapLimit = typeof gapLimit === 'undefined' ? 10 : gapLimit
-    // offset = typeof offset === 'undefined' ? 0 : offset
 
   var usedAddresses = []
 

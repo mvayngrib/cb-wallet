@@ -6,17 +6,18 @@ module.exports.API = require('cb-blockr')
 var bitcoin = require('bitcoinjs-lib')
 var TxGraph = require('bitcoin-tx-graph')
 var assert = require('assert')
-var deepEqual = require('deep-equal');
 var discoverAddresses = require('./network').discoverAddresses
 var fetchTransactions = require('./network').fetchTransactions
 var validate = require('./validator')
 var EventEmitter = require('events').EventEmitter
 var inherits = require('util').inherits
+var extend = require('extend')
 var TxBuilder = require('./txbuilder');
 var DEFAULT_GAP_LIMIT = 10
 var INTERNAL = 'internal'
 var EXTERNAL = 'external'
 var BITCOIN_ACCOUNTS = [INTERNAL, EXTERNAL]
+var metadataProps = ['confirmations', 'value', 'fee', 'timestamp']
 var noop = function() {}
 
 /**
@@ -61,6 +62,7 @@ function Wallet(options, done) {
   this.networkName = options.networkName
   this.api = new module.exports.API(this.networkName)
   this.txGraph = new TxGraph()
+  this.getTx = this.txGraph.findNodeById.bind(this)
   this.txMetadata = {}
 
   this.bootstrap(done)
@@ -128,8 +130,15 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
       for (i = 0; i < txs.length; i++) {
         var tx = txs[i]
         var id = tx.getId()
-        if (!deepEqual(self.txMetadata[id], metadata[id])) {
-          self.txMetadata[id] = metadata[id]
+        var saved = self.txMetadata[id]
+        var didChange = !saved || metadataProps.some(function(p) {
+          return save[p] !== metadata[id][p]
+        })
+
+        if (didChange) {
+          if (saved) extend(saved, metadata[id])
+          else self.txMetadata[id] = metadata[id]
+
           changed.push(tx)
         }
       }
