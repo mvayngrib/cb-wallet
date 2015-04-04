@@ -11,7 +11,7 @@ TxBuilder.prototype.to = function(addr, amount) {
 }
 
 TxBuilder.prototype.from = function(addr) {
-  this._from = addr;
+  this._from = Array.isArray(addr) ? addr : [addr];
   return this;
 }
 

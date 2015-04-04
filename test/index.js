@@ -459,6 +459,23 @@ describe('Common Blockchain Wallet', function() {
             var tx = wallet.createTx(to, value)
             assert.equal(tx.outs.length, 1)
           })
+
+          it('uses specified "from" and "to" address', function() {
+            var unspents = wallet.getUnspents(0)
+            unspents.forEach(function(u) {
+              var to1 = 'mv6AJ7VogyiTBajtsDbc7Fnhxi5iT9CENh';
+              var from = u.address
+              var tx = wallet.buildTx()
+                .to(to, value / 2)
+                .to(to1, value / 2)
+                .from(from)
+                .build();
+
+              assert.equal(wallet.getAddressFromInput(tx.ins[0]), from)
+              assert.equal(wallet.getAddressFromOutput(tx.outs[0]), to)
+              assert.equal(wallet.getAddressFromOutput(tx.outs[1]), to1)
+            })
+          })
         })
       })
 

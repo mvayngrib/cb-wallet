@@ -451,15 +451,17 @@ Wallet.prototype._createTx = function(build) {
   }
 
   var utxos = this.getUnspents(build.minConf)
+  if (build.from) {
+    utxos = utxos.filter(function(u) {
+      return build.from.indexOf(u.address) !== -1
+    })
+  }
+
+  if (!utxos.length) throw new Error('No UTXOs found');
+
   utxos = utxos.sort(function(o1, o2) {
     return o2.value - o1.value
   })
-
-  if (build.from) {
-    utxos = utxos.filter(function(u) {
-      return u.address === build.from
-    })
-  }
 
   var accum = 0
   var subTotal = value
