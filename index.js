@@ -132,7 +132,7 @@ Wallet.prototype.fetchTransactions = function(blockHeight, callback) {
         var id = tx.getId()
         var saved = self.txMetadata[id]
         var didChange = !saved || metadataProps.some(function(p) {
-          return save[p] !== metadata[id][p]
+          return saved[p] !== metadata[id][p]
         })
 
         if (didChange) {
