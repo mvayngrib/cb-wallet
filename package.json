@@ -10,7 +10,6 @@
   },
   "pre-commit": [
     "jscs",
-    "jshint",
     "test"
   ],
   "dependencies": {
@@ -18,7 +17,7 @@
     "bip32-utils": "0.0.1",
     "bitcoin-tx-graph": "git://github.com/tradle/bitcoin-transaction-graph.git",
     "bitcoinjs-lib": "^1.2.0",
-    "cb-blockr": "^3.0.0",
+    "cb-blockr": "git://github.com/tradle/cb-blockr",
     "debug": "^2.1.1",
     "extend": "^2.0.0"
   },
