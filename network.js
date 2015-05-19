@@ -68,11 +68,13 @@ function parseTransactions(transactions, initialValue) {
     metadata: {}
   }
   return transactions.reduce(function(memo, t) {
-    var tx = bitcoin.Transaction.fromHex(t.txHex)
-    memo.txs.push(tx)
-    memo.metadata[tx.getId()] = {
-      confirmations: t.__confirmations,
-      timestamp: t.__blockTimestamp
+    if (t.txHex) {
+      var tx = bitcoin.Transaction.fromHex(t.txHex)
+      memo.txs.push(tx)
+      memo.metadata[tx.getId()] = {
+        confirmations: t.__confirmations,
+        timestamp: t.__blockTimestamp
+      }
     }
 
     return memo
